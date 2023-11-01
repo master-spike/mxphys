@@ -2,7 +2,7 @@
 
 namespace mxphys {
 void convex_polygon::convexify() {
-    
+
     std::sort(points.begin(), points.end(), [](const vec2& lhs, const vec2& rhs) {
         if (lhs.x < rhs.x) return true;
         if (lhs.x == rhs.x) return lhs.y < rhs.y;

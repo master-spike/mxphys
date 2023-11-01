@@ -22,14 +22,9 @@ private:
     double mass;
     double moment_of_inertia;
     double elasticity;
-    
+
     vec2 velocity;
     double angular_frequency;
-
-
-
-
-
 
 public:
     body() = delete;
