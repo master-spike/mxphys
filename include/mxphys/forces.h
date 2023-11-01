@@ -24,8 +24,13 @@ struct contact_point {
     std::vector<std::function<void(contact_point*)>> collision_callbacks;
     bool resolve();
     contact_point() = delete;
+    
     contact_point(vec2 _pos, vec2 _normal, body* _body1, body* _body2) :
-    position(_pos), normal(_normal), body1(_body1), body2(_body2) {}
+        position(_pos), normal(_normal), body1(_body1), body2(_body2) {}
+    
+    contact_point(vec2 _pos, vec2 _normal, body* _body1, body* _body2,
+        std::initializer_list<std::function<void(contact_point*)>> _callbacks) :
+        position(_pos), normal(_normal), body1(_body1), body2(_body2), collision_callbacks(_callbacks) {}
 };
 
 }

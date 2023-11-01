@@ -9,7 +9,7 @@ set_property(GLOBAL PROPERTY CXX_STANDARD_REQUIRED 20)
 set_property(GLOBAL PROPERTY CXX_STANDARD 20)
 set_property(TARGET mxphysdemo PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -O3")
+SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -O3")
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT result)

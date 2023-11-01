@@ -12,3 +12,5 @@ target_compile_features(MxPhysLib PUBLIC cxx_std_20)
 
 set_property(GLOBAL PROPERTY CXX_STANDARD_REQUIRED 20)
 set_property(GLOBAL PROPERTY CXX_STANDARD 20)
+
+SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -g")

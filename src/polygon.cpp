@@ -41,7 +41,7 @@ void convex_polygon::convexify() {
             auto const& v1 = *(it-2);
             auto const& v2 = *(it-1);
             auto const& v3 = *it;
-            if (v1.x == v2.x | gradient(v1, v2) > gradient(v1, v3)) break;
+            if ((v1.x == v2.x) | (gradient(v1, v2) > gradient(v1, v3))) break;
             --it;
             std::rotate(it, it+1, u_end);
             --u_end;
