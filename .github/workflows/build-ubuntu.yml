@@ -23,3 +23,5 @@ jobs:
         mkdir build
     - name: build
       run: cmake --build .
+    - name: test
+      run: ./test/collision_conservation
