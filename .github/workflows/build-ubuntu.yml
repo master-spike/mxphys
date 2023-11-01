@@ -19,7 +19,7 @@ jobs:
         sudo apt-get install libsdl2-dev
     - name: configure
       run: |
-        cmake .
+        cmake ${{github.workspace}}
         mkdir build
     - name: build
-      run: cmake --build build/
+      run: cmake --build .
