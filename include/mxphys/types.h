@@ -146,10 +146,10 @@ struct mat2 {
         m.d = -m.d;
         return m;
     }
-    constexpr static mat2 identity() {
+    static constexpr mat2 identity() {
         return mat2{1.0,0.0,0.0,1.0};
     }
-    constexpr mat2 inverse() {
+    constexpr mat2 inverse() const {
         double f = 1.0 / (a*d - b*c);
         return mat2{
             d * f,
@@ -158,7 +158,7 @@ struct mat2 {
             a * f,
         };
     }
-    constexpr mat2 transpose() {
+    constexpr mat2 transpose() const {
         return mat2{
             a, c, b, d
         };
@@ -207,27 +207,20 @@ struct affine_2d {
         return rhs;
     }
     
-    constexpr affine_2d inverse() {
+    constexpr affine_2d inverse() const {
         mat2 matinv = scale.inverse();
         return affine_2d{
             matinv,
             matinv * -shift
         };
     }
-    constexpr affine_2d identity() {
+    static constexpr affine_2d identity() {
         return affine_2d{
             mat2::identity(),
             vec2::zerovec()
         };
     }
 };
-
-class shape {
-public:
-    virtual ~shape() = 0;
-};
-shape::~shape() {}
-
 
 }
 

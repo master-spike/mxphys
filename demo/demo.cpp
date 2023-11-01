@@ -6,6 +6,7 @@
 
 #include "mxphys/polygon.h"
 #include "mxphys/body.h"
+#include "mxphys/forces.h"
 
 int main() {
 
@@ -123,11 +124,22 @@ int main() {
         double delta = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         delta /= 1000.0;
         t0 = std::chrono::steady_clock::now();
+        
+        std::vector<mxphys::contact_point> contacts;
         for (int i = 0; i < 6; ++i) {
             for (auto it = bodies.begin(); it < bodies.end(); ++it) {
                 for (auto jt = it + 1; jt < bodies.end(); ++jt) {
-                    it->handle_collision(*jt);
+                    it->get_contact_points(*jt, contacts);
                 }
+            }
+        }
+        bool contacts_unresolved = true;
+        
+        int max_iters = 5;
+        for (int i = 0; contacts_unresolved && i < max_iters; ++i) {
+            contacts_unresolved = false;
+            for (auto& cp : contacts) {
+                contacts_unresolved |= cp.resolve();
             }
         }
 
