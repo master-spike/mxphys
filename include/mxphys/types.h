@@ -3,14 +3,13 @@
 
 #include <utility>
 #include <cmath>
-#include <vector>
-#include <span>
-#include <iterator>
-#include <algorithm>
 
 namespace mxphys {
 
 class body;
+class convex_polygon;
+struct contact_point;
+struct impulse_point;
 
 struct vec2 {
     double x;

@@ -4,26 +4,32 @@
 #include <utility>
 #include <vector>
 #include <functional>
-#include <limits>
 #include <ranges>
 
 #include "types.h"
 #include "polygon.h"
-#include "forces.h"
 
 namespace mxphys {
 
 class body {
 private:
-    double mass;
-    double moment_of_inertia;
-    vec2 velocity;
-    double angular_frequency;
-    double elasticity;
 
+    convex_polygon shape;
     // position of center of mass
     affine_2d position;
-    convex_polygon shape;
+
+
+    double mass;
+    double moment_of_inertia;
+    double elasticity;
+    
+    vec2 velocity;
+    double angular_frequency;
+
+
+
+
+
 
 public:
     body() = delete;
@@ -31,32 +37,13 @@ public:
     : shape(_shape), position(_pos), mass(_mass), moment_of_inertia(_moment_of_inertia), elasticity(_elasticity),
       velocity{0.0, 0.0}, angular_frequency(0.0) {}
 
-    void get_contact_points(body& other, std::vector<contact_point>& out_contact_points) {
-        for (auto p : shape.getPoints()) {
-            auto ptrue = position(p);
-            auto pomap = other.position.inverse()(ptrue);
-            auto normal = other.position.scale * other.shape.normalAt(pomap);
-            if (normal == vec2{0.0, 0.0}) continue;
-            out_contact_points.emplace_back(ptrue, normal, this, &other);
-        }
-        for (auto q : other.shape.getPoints()) {
-            auto qtrue = other.position(q);
-            auto qimap = position.inverse()(qtrue);
-            auto normal = position.scale * shape.normalAt(qimap);
-            if (normal == vec2{0.0, 0.0}) continue;
-            out_contact_points.emplace_back(qtrue, normal, &other, this);
-        }
-    }
+    void get_contact_points(body& other, std::vector<contact_point>& out_contact_points);
     vec2 velocityAt(vec2 point) const {
         auto p = point - position.shift;
         return velocity + angular_frequency * (mat2{0,-1,1,0} * p);
     }
-    void apply_impulse(impulse_point imp) {
-        auto adj_origin = position.inverse()(imp.origin);
-        auto adj_impulse = position.scale.inverse() * imp.impulse;
-        angular_frequency += (1.0/moment_of_inertia) * adj_impulse.cross(-adj_origin);
-        velocity += (1.0/mass) * imp.impulse;
-    }
+    void apply_impulse(impulse_point imp);
+
     void update(double delta) {
         position.scale = mat2::rot_mat(angular_frequency * delta) * position.scale;
         position.shift += velocity * delta;

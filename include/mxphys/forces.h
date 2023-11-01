@@ -2,6 +2,7 @@
 #define MXPHYS_FORCES_H
 
 #include <functional>
+#include <vector>
 
 #include "types.h"
 
