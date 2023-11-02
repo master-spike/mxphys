@@ -7,6 +7,9 @@
 #include "mxphys/polygon.h"
 #include "mxphys/body.h"
 #include "mxphys/forces.h"
+#include "mxphys/event/eventmanager.h"
+#include "mxphys/event/collision_event.h"
+#include "mxphys/event/event_data.h"
 
 using mxphys::vec2;
 using mxphys::affine_2d;
@@ -20,74 +23,65 @@ bool cctp_verbose = false;
 
 }
 
+namespace collision_conservation_test_results {
+    std::vector<mxphys::event::collision_event> failed_tests;
+}
+
 bool almost_equal(double a, double b) {
     return (0.99999999 <= a/b && a/b <= 1.0000001) || std::abs(a - b) <= std::numeric_limits<double>::epsilon() ;
 }
 
-std::function<void(contact_point*)> test_kinetic_energy_precallback(double* previous_KE) {
-    return [=](contact_point* cp) {
-        *previous_KE = cp->body1->kineticEnergy() + cp->body2->kineticEnergy();
-    };
-}
 
-std::function<void(contact_point*)> test_linear_momentum_precallback(vec2* previous_LM) {
-    return [=](contact_point* cp) {
-        vec2 lm1 = (cp->body1->getVelocity() == vec2::zerovec()) ? vec2::zerovec() : cp->body1->getMass() * cp->body1->getVelocity();
-        vec2 lm2 = (cp->body2->getVelocity() == vec2::zerovec()) ? vec2::zerovec() : cp->body2->getMass() * cp->body2->getVelocity();
-        *previous_LM = lm1 + lm2;
-    };
-}
-
-
-std::function<void(contact_point*)> test_kinetic_energy_postcallback(bool* out_var, double* previous_KE) {
+void test_collision(std::unique_ptr<mxphys::event::event_data> const& edata) {
+    mxphys::event::collision_event const& coll = static_cast<mxphys::event::collision_event const&>(*edata);
     using namespace collision_conservation_test_parameters;
-    return [=](contact_point* cp) {
-        if (cctp_verbose) {
-            std::cout << "Collision detected - kinetic energy " << *previous_KE << "->" << cp->body1->kineticEnergy() + cp->body2->kineticEnergy() << std::endl;
-        }
-        if (cp->body1->getElasticity() * cp->body2->getElasticity() < 1.0) {
-            *out_var = cp->body1->kineticEnergy() + cp->body2->kineticEnergy() <= *previous_KE;
-        }
-        else if (cp->body1->getElasticity() * cp->body2->getElasticity() > 1.0) {
-            *out_var = cp->body1->kineticEnergy() + cp->body2->kineticEnergy() >= *previous_KE;
-        }
-        else *out_var = almost_equal(cp->body1->kineticEnergy() + cp->body2->kineticEnergy(), *previous_KE);
+    using namespace collision_conservation_test_results;
+    
+    auto calc_ke = [](std::pair<double, double> const& masses, std::pair<double, double> const& moments_of_inertia,
+                      std::pair<vec2,vec2> const& velocities, std::pair<double, double> const& angular){
+        double ke1l = (velocities.first == vec2{0.0, 0.0}) ? 0.0 : masses.first * velocities.first.dot(velocities.first);
+        double ke2l = (velocities.second == vec2{0.0, 0.0}) ? 0.0 : masses.second * velocities.second.dot(velocities.second);
+        double ke1a = (angular.first == 0.0) ? 0.0 : moments_of_inertia.first * angular.first * angular.first;
+        double ke2a = (angular.second == 0.0) ? 0.0 : moments_of_inertia.second * angular.second * angular.second;
+        return 0.5 * (ke1a + ke2a + ke1l + ke2l);
     };
-}
 
-std::function<void(contact_point*)> test_linear_momentum_postcallback(bool* out_var, vec2* previous_momentum) {
-    using namespace collision_conservation_test_parameters;
-    return [=](contact_point* cp) {
-        vec2 lm1 = (cp->body1->getVelocity() == vec2::zerovec()) ? vec2::zerovec() : cp->body1->getMass() * cp->body1->getVelocity();
-        vec2 lm2 = (cp->body2->getVelocity() == vec2::zerovec()) ? vec2::zerovec() : cp->body2->getMass() * cp->body2->getVelocity();
-        if (cctp_verbose) {
-            std::cout << "Collision detected - linear momentum " << *previous_momentum << "->" << lm1 + lm2 << std::endl;
-        }
-        if (cp->body1->getMass() > std::numeric_limits<double>::max() || cp->body2->getMass() > std::numeric_limits<double>::max()) {
-            // infinite mass objects are an exceptional case as they can act as infinite sinks / sources of momentum
-            *out_var = true;
-            return;
-        }
-        *out_var = almost_equal(lm1.x + lm2.x, previous_momentum->x) && almost_equal(lm1.y + lm2.y, previous_momentum->y);
+    auto calc_momentum_l = [](std::pair<double, double> const& masses, std::pair<vec2,vec2> const& velocities) {
+        if (std::max(masses.first, masses.second) > std::numeric_limits<double>::max())
+            return vec2::zerovec();
+        return masses.first * velocities.first + masses.second * velocities.second;
     };
+
+    double ke_init = calc_ke(coll.masses, coll.moments_of_inertia, coll.vs_init, coll.afs_init);
+    double ke_final = calc_ke(coll.masses, coll.moments_of_inertia, coll.vs_final, coll.afs_final);
+    vec2 lm_init = calc_momentum_l(coll.masses, coll.vs_init);
+    vec2 lm_final = calc_momentum_l(coll.masses, coll.vs_final);
+
+    if (cctp_verbose) {
+        std::cout << "Collision detected: IDs " << coll.ids.first << "," << coll.ids.second << std::endl
+                  << "kinetic energy " << ke_init << "->" << ke_final << std::endl
+                  << "linear momentum " << lm_init << "->" << lm_final << std::endl;
+    }
+    if ((coll.restitution < 1.0 && ke_init < ke_final) || 
+        (coll.restitution > 1.0 && ke_init > ke_final) || 
+        (coll.restitution == 1.0 && !almost_equal(ke_init, ke_final))) {
+        failed_tests.emplace_back(coll);
+    }
+    else if (!almost_equal(lm_init.x, lm_final.x) ||
+             !almost_equal(lm_init.y, lm_final.y)) {
+        failed_tests.emplace_back(coll);
+    }
 }
 
 bool test_conservation(std::vector<mxphys::body>& bodies, size_t iterations, double delta) {
-    bool test_ke = true;
-    bool test_lm = true;
-    double pre_ke = 0.0;
-    vec2 pre_lm = vec2::zerovec();
+
+    mxphys::event::eventmanager e_manager;
+    e_manager.register_listener(mxphys::event::event_type::COLLISION, test_collision);
     for (size_t i = 0; i < iterations; ++i) {
         std::vector<contact_point> contact_points;
         for (auto it = bodies.begin(); it != bodies.end(); ++it) {
             for (auto jt = it + 1; jt != bodies.end(); ++jt) {
-                it->get_contact_points(*jt, contact_points, {
-                    test_kinetic_energy_precallback(&pre_ke),
-                    test_linear_momentum_precallback(&pre_lm)
-                }, {
-                    test_kinetic_energy_postcallback(&test_ke, &pre_ke),
-                    test_linear_momentum_postcallback(&test_lm, &pre_lm)
-                });
+                it->get_contact_points(*jt, contact_points);
             }
         }
 
@@ -95,27 +89,21 @@ bool test_conservation(std::vector<mxphys::body>& bodies, size_t iterations, dou
         for (int i = 0; i < 5 && unresolved; ++i) {
             unresolved = false;
             for (contact_point& cp : contact_points) {
-                bool coll = cp.resolve();
-                unresolved |= coll;
-                if (!(test_ke && test_lm)) {
-                    if (!test_ke)
-                        std::cout << "FAILED KINETIC ENERGY CONSERVATION" << std::endl;
-                    if (!test_lm)
-                        std::cout << "FAILED LINEAR MOMENTUM CONSERVATION" << std::endl;
-                    std::cout << 
-                    "masses: " << cp.body1->getMass() << "," << cp.body2->getMass() << std::endl <<
-                    "surface normal: " << cp.normal << std::endl <<
-                    "contact position: " << cp.position << std::endl <<
-                    "" << std::endl;
-                    return false;
-                }
+                unresolved |= cp.resolve(e_manager);
             }
         }
+
+        e_manager.emit_all();
 
         for (mxphys::body& b : bodies) {
             b.update(delta);
         }
 
+    }
+
+    if (!collision_conservation_test_results::failed_tests.empty()) {
+        std::cout << "FAILED TESTS" << std::endl;
+        return false;
     }
 
     return true;

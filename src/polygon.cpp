@@ -24,27 +24,31 @@ void convex_polygon::convexify() {
     };
     auto part = std::stable_partition(points.begin(), points.end(), above_line);
     auto l_end = part;
-    for (auto it = points.begin() + 2; it < l_end; ++it) {
-        while (it >= points.begin() + 2) {
-            auto const& v1 = *(it-2);
-            auto const& v2 = *(it-1);
-            auto const& v3 = *it;
-            if (gradient(v1, v2) < gradient(v1, v3)) break;
-            --it;
-            std::rotate(it, it+1, l_end);
-             --l_end;
+    if (std::distance(points.begin(), l_end) > 2) {
+        for (auto it = points.begin() + 2; it < l_end; ++it) {
+            while (it >= points.begin() + 2) {
+                auto const& v1 = *(it-2);
+                auto const& v2 = *(it-1);
+                auto const& v3 = *it;
+                if (gradient(v1, v2) < gradient(v1, v3)) break;
+                --it;
+                std::rotate(it, it+1, l_end);
+                 --l_end;
+            }
         }
     }
     auto u_end = points.end();
-    for (auto it = part + 2; it < u_end; ++it) {
-        while (it >= part + 2) {
-            auto const& v1 = *(it-2);
-            auto const& v2 = *(it-1);
-            auto const& v3 = *it;
-            if ((v1.x == v2.x) | (gradient(v1, v2) > gradient(v1, v3))) break;
-            --it;
-            std::rotate(it, it+1, u_end);
-            --u_end;
+    if (std::distance(part, u_end) > 2){ 
+        for (auto it = part + 2; it < u_end; ++it) {
+            while (it >= part + 2) {
+                auto const& v1 = *(it-2);
+                auto const& v2 = *(it-1);
+                auto const& v3 = *it;
+                if ((v1.x == v2.x) | ((gradient(v1, v2) > gradient(v1, v3)))) break;
+                --it;
+                std::rotate(it, it+1, u_end);
+                --u_end;
+            }
         }
     }
     auto end = l_end;
