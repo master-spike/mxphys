@@ -22,20 +22,21 @@ void body::get_contact_points(body& other, std::vector<contact_point>& out_conta
 }
 
 void body::get_contact_points(body& other, std::vector<contact_point>& out_contact_points,
-                              std::initializer_list<std::function<void(contact_point*)>> callbacks) {
+                              std::initializer_list<std::function<void(contact_point*)>> precallbacks,
+                              std::initializer_list<std::function<void(contact_point*)>> postcallbacks) {
     for (auto p : shape.getPoints()) {
         auto ptrue = position(p);
         auto pomap = other.position.inverse()(ptrue);
         auto normal = other.position.scale * other.shape.normalAt(pomap);
         if (normal == vec2{0.0, 0.0}) continue;
-        out_contact_points.emplace_back(ptrue, normal, this, &other, callbacks);
+        out_contact_points.emplace_back(ptrue, normal, this, &other, precallbacks, postcallbacks);
     }
     for (auto q : other.shape.getPoints()) {
         auto qtrue = other.position(q);
         auto qimap = position.inverse()(qtrue);
         auto normal = position.scale * shape.normalAt(qimap);
         if (normal == vec2{0.0, 0.0}) continue;
-        out_contact_points.emplace_back(qtrue, normal, &other, this, callbacks);
+        out_contact_points.emplace_back(qtrue, normal, &other, this, precallbacks, postcallbacks);
     }
 }
 

@@ -6,6 +6,10 @@ namespace mxphys {
 
 bool contact_point::resolve() {
 
+    for (auto& f : pre_collision_callbacks) {
+        f(this);
+    }
+
     double restitution = body1->getElasticity() * body2->getElasticity();
     auto rvel = body2->velocityAt(position) - body1->velocityAt(position);
     
@@ -39,7 +43,7 @@ bool contact_point::resolve() {
     body1->apply_impulse(impulse_p1);
     body2->apply_impulse(impulse_p2);
 
-    for (auto f : collision_callbacks) {
+    for (auto& f : post_collision_callbacks) {
         f(this);
     }
     return true;

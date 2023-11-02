@@ -1,6 +1,7 @@
 #ifndef MXPHYS_TYPES_H
 #define MXPHYS_TYPES_H
 
+#include <ostream>
 #include <utility>
 #include <cmath>
 
@@ -72,6 +73,11 @@ struct vec2 {
 
     constexpr bool operator==(const vec2& v) const {
         return (v.x == x) & (v.y == y);
+    }
+
+    friend std::ostream& operator<<(std::ostream& o, const vec2& v) {
+        o << "[" << v.x << "," << v.y << "]";
+        return o;
     }
 
 };
@@ -219,6 +225,7 @@ struct affine_2d {
             vec2::zerovec()
         };
     }
+    
 };
 
 }

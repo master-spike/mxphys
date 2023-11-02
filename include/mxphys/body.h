@@ -34,7 +34,8 @@ public:
 
     void get_contact_points(body& other, std::vector<contact_point>& out_contact_points);
     void get_contact_points(body & other, std::vector<contact_point>& out_contact_points,
-                            std::initializer_list<std::function<void(contact_point*)>> callbacks);
+                            std::initializer_list<std::function<void(contact_point*)>> precallbacks,
+                            std::initializer_list<std::function<void(contact_point*)>> postcallbacks);
     vec2 velocityAt(vec2 point) const {
         auto p = point - position.shift;
         return velocity + angular_frequency * (mat2{0,-1,1,0} * p);
