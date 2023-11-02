@@ -11,6 +11,9 @@ class body;
 class convex_polygon;
 struct contact_point;
 struct impulse_point;
+namespace event {
+    class eventmanager;
+}
 
 struct vec2 {
     double x;

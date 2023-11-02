@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include <random>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <chrono>
 
 #include "mxphys/polygon.h"
