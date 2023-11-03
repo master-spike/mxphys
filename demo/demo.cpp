@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <iostream>
 
 #include <random>
@@ -8,7 +9,11 @@
 #include "mxphys/body.h"
 #include "mxphys/forces.h"
 
-int main() {
+int main(int argc, char** argv) {
+
+    // silence silly compiler warnings about these
+    (void) argc;
+    (void) argv;
 
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         
@@ -17,7 +22,7 @@ int main() {
 
     constexpr int w_height = 800;
     constexpr int w_width = 800;
-    SDL_Window* window = SDL_CreateWindow("mxphys demo", 0, 0, 800, 800, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow("mxphys demo", 10, 10, 800, 800, SDL_WINDOW_SHOWN);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
@@ -121,7 +126,7 @@ int main() {
     std::chrono::time_point t0 = std::chrono::steady_clock::now();
     while (!close) {
         std::chrono::time_point t1 = std::chrono::steady_clock::now();
-        double delta = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+        double delta = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
         delta /= 1000.0;
         t0 = std::chrono::steady_clock::now();
         

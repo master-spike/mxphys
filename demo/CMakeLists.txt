@@ -11,8 +11,6 @@ set_property(GLOBAL PROPERTY CXX_STANDARD_REQUIRED 20)
 set_property(GLOBAL PROPERTY CXX_STANDARD 20)
 set_property(TARGET mxphysdemo PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -O3")
-
 include(CheckIPOSupported)
 check_ipo_supported(RESULT result)
 if(result)
@@ -20,4 +18,4 @@ if(result)
 endif()
 
 target_include_directories(mxphysdemo PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-target_link_libraries(mxphysdemo PUBLIC SDL2::SDL2 MxPhysLib)
+target_link_libraries(mxphysdemo PUBLIC SDL2::SDL2 SDL2::SDL2main MxPhysLib)

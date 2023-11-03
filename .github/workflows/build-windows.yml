@@ -1,0 +1,26 @@
+name: build-windows
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: install dependencies
+      shell: pwsh
+      run: |
+        mkdir sdl2
+        Invoke-WebRequest -Uri https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-devel-2.28.5-VC.zip -OutFile SDL2-devel-2.28.5-VC.zip
+        Expand-Archive SDL2-devel-2.28.5-VC.zip -DestinationPath ${{github.workspace}}\sdl2
+    - name: configure
+      shell: pwsh
+      run: |
+        cmake -DSDL2_DIR=${{github.workspace}}\sdl2\SDL2-2.28.5\cmake -B${{github.workspace}}\build -S${{github.workspace}}
+    - name: build
+      run: cmake --build build/ --config Release
+    - name: test
+      run: .\build\test\Release\collision_conservation.exe
