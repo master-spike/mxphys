@@ -19,7 +19,7 @@ jobs:
     - name: configure
       shell: pwsh
       run: |
-        cmake -DSDL2_DIR=${{github.workspace}}\sdl2\SDL2-2.28.5\cmake ${{github.workspace}}\
+        cmake -DSDL2_DIR=${{github.workspace}}\sdl2\SDL2-2.28.5\cmake -B${{github.workspace}}\build -S.
         mkdir build
     - name: build
       run: cmake --build build/ --config Release
