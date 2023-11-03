@@ -15,7 +15,7 @@ jobs:
       run: |
         mkdir sdl2
         $WebClient = New-Object System.Net.Webclient
-        $WebClient.DownloadFile("https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-devel-2.28.5-VC.zip" "${{github.workspace}}\sdl2")
+        $WebClient.DownloadFile("https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-devel-2.28.5-VC.zip", "${{github.workspace}}\sdl2")
         Expand-Archive ${{github.workspace}}\sdl2\SDL2-devel-2.28.5-VC.zip -DestinationPath ${{github.workspace}}/sdl2
     - name: configure
       shell: pwsh
