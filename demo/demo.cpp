@@ -23,9 +23,9 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    constexpr int w_height = 800;
-    constexpr int w_width = 800;
-    SDL_Window* window = SDL_CreateWindow("mxphys demo", 10, 10, 800, 800, SDL_WINDOW_SHOWN);
+    constexpr int w_height = 960;
+    constexpr int w_width = 960;
+    SDL_Window* window = SDL_CreateWindow("mxphys demo", 10, 10, w_height, w_width, SDL_WINDOW_SHOWN);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
@@ -136,12 +136,13 @@ int main(int argc, char** argv) {
 
     bool close = false;
     std::chrono::time_point t0 = std::chrono::steady_clock::now();
+    std::size_t c = 0;
     while (!close) {
         std::chrono::time_point t1 = std::chrono::steady_clock::now();
         double delta = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
         delta /= 1000.0;
         t0 = std::chrono::steady_clock::now();
-        std::string new_window_title = "mxphys demo - " + std::to_string(delta) + "ms";
+        std::string new_window_title = "mxphys demo - " + std::to_string(delta) + "ms | c:" + std::to_string(c);
         SDL_SetWindowTitle(window, new_window_title.c_str());
 
         std::unordered_map<uint64_t, std::vector<mxphys::body>::iterator> id_to_body;
@@ -150,14 +151,15 @@ int main(int argc, char** argv) {
         }
         
         mxphys::bounding_volume_heirarchy<uint64_t> bvh_by_id(
-            bodies.cbegin(), bodies.cend(),
+            bodies.begin(), bodies.end(),
             [](const mxphys::body & b) { return b.getID(); },
             [](const mxphys::body & b) { return b.getBoundingBox(); }
         );
 
         std::vector<mxphys::contact_point> contacts;
+        c = 0;
         for (auto it = bodies.begin(); it < bodies.end(); ++it) {
-            bvh_by_id.for_each_possible_colliding(
+            c += bvh_by_id.for_each_possible_colliding(
                 it->getBoundingBox(),
                 [&id_to_body, &contacts, &it](uint64_t other_id) {
                     if (it->getID() >= other_id) return;
@@ -167,6 +169,7 @@ int main(int argc, char** argv) {
                 }
             );
         }
+        c /= bodies.size();
         bool contacts_unresolved = true;
         
         int max_iters = 5;
