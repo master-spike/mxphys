@@ -36,14 +36,22 @@ class bounding_volume_heirarchy {
             m_BB = std::accumulate(ts_l, ts_r, m_BB, [](const bounding_box& lhs, const std::pair<T, bounding_box>& rhs) {
                 return lhs.bb_union(rhs.second);
             });
+
+            // we don't need to divide by 2 as we are simply using it to compare
+            auto bb_centroidx2 = [](const bounding_box& bb) -> vec2 {
+                return vec2{bb.bottom_left.x + bb.top_right.x, bb.bottom_left.y + bb.top_right.y};
+            };
+
+            auto cmp_x = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
+                return bb_centroidx2(lhs.second).x < bb_centroidx2(rhs.second).x;
+            };
+            auto cmp_y = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
+                return bb_centroidx2(lhs.second).y < bb_centroidx2(rhs.second).y;
+            };
             
             auto midpoint = ts_l;
             std::advance(midpoint, std::distance(ts_l, ts_r) / 2);
-            std::nth_element(ts_l, midpoint, ts_r, [](const std::pair<T, bounding_box>& lhs, const std::pair<T, bounding_box>& rhs) {
-                bounding_box const& bb_l = lhs.second;
-                bounding_box const& bb_r = rhs.second;
-                return bb_l.bottom_left.x + bb_l.top_right.x < bb_r.bottom_left.x + bb_r.top_right.x;
-            });
+            std::nth_element(ts_l, midpoint, ts_r, cmp_x);
             double x_part_line = midpoint->second.bottom_left.x;
             std::size_t x_overlap = std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
                 return pair.second.top_right.x >= x_part_line;
@@ -52,11 +60,7 @@ class bounding_volume_heirarchy {
             }) - std::distance(ts_l, ts_r);
 
             // find overlap along y-axis
-            std::nth_element(ts_l, midpoint, ts_r, [](const std::pair<T, bounding_box>& lhs, const std::pair<T, bounding_box>& rhs) {
-                bounding_box const& bb_l = lhs.second;
-                bounding_box const& bb_r = rhs.second;
-                return bb_l.bottom_left.y + bb_l.top_right.y < bb_r.bottom_left.y + bb_r.top_right.y;
-            });
+            std::nth_element(ts_l, midpoint, ts_r, cmp_y);
             double y_part_line = midpoint->second.bottom_left.y;
             std::size_t y_overlap = std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
                 return pair.second.top_right.y >= y_part_line;
@@ -65,11 +69,7 @@ class bounding_volume_heirarchy {
             }) - std::distance(ts_l, ts_r);
 
             if (x_overlap < y_overlap) {
-                std::nth_element(ts_l, midpoint, ts_r, [](const std::pair<T, bounding_box>& lhs, const std::pair<T, bounding_box>& rhs) {
-                    bounding_box const& bb_l = lhs.second;
-                    bounding_box const& bb_r = rhs.second;
-                    return bb_l.bottom_left.x + bb_l.top_right.x < bb_r.bottom_left.x + bb_r.top_right.x;
-                });
+                std::nth_element(ts_l, midpoint, ts_r, cmp_x);
             }
             m_Value = midpoint->first;
             m_Children = std::make_pair(
