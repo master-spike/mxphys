@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include <ranges>
+#include <optional>
 
 #include "types.h"
 #include "polygon.h"
@@ -29,6 +30,8 @@ private:
     double angular_frequency;
 
     const uint64_t id;
+
+    std::optional<std::pair<double,vec2>> sat_contact_normal(const body& other) const;
 
 public:
     body() = delete;
@@ -59,7 +62,7 @@ public:
     }
 
     auto getTranslatedPoints() const {
-        return std::views::transform(shape.getPoints(), [this](vec2 v) {return position(v);});
+        return std::views::transform(shape.getPoints(), position);
     }
 
     affine_2d getPos() const {
