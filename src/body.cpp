@@ -6,9 +6,11 @@ namespace mxphys
 {
 
 void body::get_contact_points(body& other, std::vector<contact_point>& out_contact_points) {
+    if (other.id == id) return; // do not self-collide
     auto cn1 = sat_contact_normal(other);
+    if (!cn1) return;
     auto cn2 = other.sat_contact_normal(*this);
-    if (!cn1 || !cn2) return;
+    if (!cn2) return;
     if (cn1->first <= cn2->first) {
         const vec2& norm = cn1->second;
         affine_2d map_to_own = position.inverse() * other.position;
@@ -60,20 +62,23 @@ std::optional<std::pair<double,vec2>> body::sat_contact_normal(const body& other
     double min_depth = std::numeric_limits<double>::infinity();
     vec2 min_depth_norm = vec2::zerovec();
 
-    for (auto it = shape.getPoints().begin(); it != shape.getPoints().end(); ++it) {
-        vec2 normal = it + 1 == shape.getPoints().end() ? *shape.getPoints().begin() - *it: *(it+1) - *it;
-        normal = mat2{0, 1, -1, 0} * normal.normalized();
+    auto our_points = shape.getPoints();
+
+    for (auto it = our_points.begin(); it != our_points.end(); ++it) {
+        const vec2& p1 = *it;
+        const vec2& p2 = it + 1 == our_points.end() ? *our_points.begin() : *(it+1);
+        vec2 normal = mat2{0, 1, -1, 0} * (p2 - p1).normalized();
         
         auto min_other = std::min_element(other_points.begin(), other_points.end(), [&normal](vec2 const& p1, vec2 const& p2){
             return normal.dot(p1) < normal.dot(p2);
         });
-        auto max_this = std::max_element(shape.getPoints().begin(), shape.getPoints().end(), [&normal](vec2 const& p1, vec2 const& p2){
+        auto max_this = std::max_element(our_points.begin(), our_points.end(), [&normal](vec2 const& p1, vec2 const& p2){
             return normal.dot(p1) < normal.dot(p2);
         });
         double depth = normal.dot(*max_this) - normal.dot(*min_other);
         
         // No collision!
-        if (depth < 0) return std::nullopt;
+        if (depth < 0.0) return std::nullopt;
 
         if (min_depth > depth) {
             min_depth = depth;

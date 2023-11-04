@@ -240,7 +240,14 @@ struct bounding_box {
     bounding_box() = delete;
     
     bounding_box(vec2 _bottom_left, vec2 _top_right)
-    : bottom_left(_bottom_left), top_right(_top_right){}
+    : bottom_left(_bottom_left), top_right(_top_right){
+        if (bottom_left.x > top_right.x) {
+            std::swap(bottom_left.x, top_right.x);
+        }
+        if (bottom_left.y > top_right.y) {
+            std::swap(bottom_left.y, top_right.y);
+        }
+    }
 
     bounding_box(std::ranges::forward_range auto&& points)
     : bottom_left(vec2{0.0, 0.0}), top_right(vec2{0.0, 0.0})

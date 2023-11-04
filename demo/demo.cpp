@@ -4,6 +4,8 @@
 #include <random>
 #include <SDL.h>
 #include <chrono>
+#include <unordered_map>
+#include <vector>
 
 #include "mxphys/polygon.h"
 #include "mxphys/body.h"
@@ -58,11 +60,11 @@ int main(int argc, char** argv) {
 
     std::vector<mxphys::body> bodies;
 
-    // create 225 sample polygons
-    for (int i = 0; i < 15; ++i) {
-        for (int j = 0; j < 15; ++j) {
-            auto px = static_cast<double>(i + 1) / 16.0;
-            auto py = static_cast<double>(j + 1) / 16.0; 
+    // create 400 sample polygons
+    for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < 20; ++j) {
+            auto px = static_cast<double>(i + 1) / 21.0;
+            auto py = static_cast<double>(j + 1) / 21.0;
             bodies.emplace_back(regular_poly( (i + j) % 5 + 3, ((i + j) % 6 + 4) / 10.0,
                 mxphys::affine_2d{
                     mxphys::mat2::identity(),
@@ -139,6 +141,13 @@ int main(int argc, char** argv) {
         double delta = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
         delta /= 1000.0;
         t0 = std::chrono::steady_clock::now();
+        std::string new_window_title = "mxphys demo - " + std::to_string(delta) + "ms";
+        SDL_SetWindowTitle(window, new_window_title.c_str());
+
+        std::unordered_map<uint64_t, std::vector<mxphys::body>::iterator> id_to_body;
+        for (auto it = bodies.begin(); it != bodies.end(); ++it) {
+            id_to_body.emplace(it->getID(), it);
+        }
         
         mxphys::bounding_volume_heirarchy<uint64_t> bvh_by_id(
             bodies.cbegin(), bodies.cend(),
@@ -150,11 +159,11 @@ int main(int argc, char** argv) {
         for (auto it = bodies.begin(); it < bodies.end(); ++it) {
             bvh_by_id.for_each_possible_colliding(
                 it->getBoundingBox(),
-                [&bodies, &contacts, &it](uint64_t other_id) {
-                    auto jt = std::lower_bound(bodies.begin(), bodies.end(), other_id, [](const mxphys::body& b, uint64_t v){
-                        return b.getID() < v;
-                    });
-                    if (jt->getID() == other_id) it->get_contact_points(*jt, contacts);
+                [&id_to_body, &contacts, &it](uint64_t other_id) {
+                    if (it->getID() >= other_id) return;
+                    auto jt = id_to_body.find(other_id);
+                    if (jt == id_to_body.end()) return;
+                    if (jt->second->getID() == other_id) it->get_contact_points(*(jt->second), contacts);
                 }
             );
         }
