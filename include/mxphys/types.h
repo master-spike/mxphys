@@ -228,7 +228,56 @@ struct affine_2d {
             vec2::zerovec()
         };
     }
+
+
+
+};
+
+struct bounding_box {
+    vec2 bottom_left;
+    vec2 top_right;
     
+    bounding_box() = delete;
+    
+    bounding_box(vec2 _bottom_left, vec2 _top_right)
+    : bottom_left(_bottom_left), top_right(_top_right){}
+
+    bounding_box(std::ranges::forward_range auto&& points)
+    : bottom_left(vec2{0.0, 0.0}), top_right(vec2{0.0, 0.0})
+    {
+        static_assert(std::is_same_v<
+            vec2, std::ranges::range_value_t<decltype(points)>
+        >);
+        if (points.begin() == points.end()) return;
+        double l = (*std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+            return lhs.x < rhs.x;
+        })).x;
+        double r = (*std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+            return lhs.x < rhs.x;
+        })).x;
+        double b = (*std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+            return lhs.y < rhs.y;
+        })).y;
+        double t = (*std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+            return lhs.y < rhs.y;
+        })).y;
+        bottom_left = vec2{l, b};
+        top_right = vec2{r,t};
+    }
+
+    bool intersects(const bounding_box& other) const {
+        if ((bottom_left.x > other.top_right.x) || (top_right.x < other.bottom_left.x)) return false; 
+        if ((bottom_left.y > other.top_right.y) || (top_right.y < other.bottom_left.y)) return false;
+
+        return true;
+    }
+
+    bounding_box bb_union(const bounding_box& other) const {
+        return bounding_box{
+            vec2{std::min(bottom_left.x, other.bottom_left.x), std::min(bottom_left.y, other.bottom_left.y)},
+            vec2{std::max(top_right.x, other.top_right.x), std::max(top_right.y, other.top_right.y)}
+        };
+    }
 };
 
 }
