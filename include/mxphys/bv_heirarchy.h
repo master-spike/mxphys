@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <numeric>
+#include <unordered_set>
 
 #include "types.h"
 
@@ -41,7 +42,7 @@ class bounding_volume_heirarchy {
             std::nth_element(ts_l, midpoint, ts_r, [](const std::pair<T, bounding_box>& lhs, const std::pair<T, bounding_box>& rhs) {
                 bounding_box const& bb_l = lhs.second;
                 bounding_box const& bb_r = rhs.second;
-                return bb_l.bottom_left.x < bb_r.bottom_left.x;
+                return bb_l.bottom_left.x + bb_l.top_right.x < bb_r.bottom_left.x + bb_r.top_right.x;
             });
             double x_part_line = midpoint->second.bottom_left.x;
             std::size_t x_overlap = std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
@@ -54,7 +55,7 @@ class bounding_volume_heirarchy {
             std::nth_element(ts_l, midpoint, ts_r, [](const std::pair<T, bounding_box>& lhs, const std::pair<T, bounding_box>& rhs) {
                 bounding_box const& bb_l = lhs.second;
                 bounding_box const& bb_r = rhs.second;
-                return bb_l.bottom_left.y < bb_r.bottom_left.y;
+                return bb_l.bottom_left.y + bb_l.top_right.y < bb_r.bottom_left.y + bb_r.top_right.y;
             });
             double y_part_line = midpoint->second.bottom_left.y;
             std::size_t y_overlap = std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
@@ -76,24 +77,40 @@ class bounding_volume_heirarchy {
                 std::make_unique<bvh_node>(midpoint+1, ts_r)
             );
         }
-        void traverse(const bounding_box& bb, std::function<void(const T&)> func) const {
-            if (!bb.intersects(m_BB)) return;
+        std::size_t traverse(const bounding_box& bb, std::function<void(const T&)> func) const {
+            if (!bb.intersects(m_BB)) return 0;
+            std::size_t c = 0;
             if (m_Value.has_value()) {
                 func(m_Value.value());
+                c = 1;
             }
             if (m_Children.has_value()) {
-                m_Children.value().first->traverse(bb,func);
-                m_Children.value().second->traverse(bb,func);
+                c += m_Children.value().first->traverse(bb,func);
+                c += m_Children.value().second->traverse(bb,func);
             }
+            return c;
         }
 
-        void getBoundingBoxes(auto out) {
+        void getBoundingBoxes(auto out) const {
             *out = m_BB;
             ++out;
             if (m_Children.has_value()) {
                 m_Children.value().first->getBoundingBoxes(out);
                 m_Children.value().second->getBoundingBoxes(out);
             }
+        }
+
+        int countElems(std::unordered_set<T>& seen) const {
+            int c = 0;
+            if (m_Value.has_value()) {
+                ++c;
+                seen.emplace(m_Value().value());
+            }
+            if (m_Children.has_value()) {
+                c += m_Children.value().first->countElems(seen);
+                c += m_Children.value().first->countElems(seen);
+            }
+            return c;
         }
     };
 
@@ -113,11 +130,12 @@ public:
         top_node = bvh_node{ts.begin(), ts.end()};
     }
     
-    void for_each_possible_colliding(const bounding_box& bb, std::function<void(const T&)> func) {
-        if (top_node.has_value()) top_node->traverse(bb, func);
+    std::size_t for_each_possible_colliding(const bounding_box& bb, std::function<void(const T&)> func) {
+        if (top_node.has_value()) return top_node->traverse(bb, func);
+        return 0;
     }
 
-    std::vector<bounding_box> getBoundingBoxes() {
+    std::vector<bounding_box> getBoundingBoxes() const {
         std::vector<bounding_box> boxes;
         if (top_node.has_value()) top_node->getBoundingBoxes(std::back_inserter(boxes));
         return boxes;
