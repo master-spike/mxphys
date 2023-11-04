@@ -111,6 +111,8 @@ public:
         return id;
     }
 
+    bounding_box getBoundingBox() const;
+
     double kineticEnergy() const {
         double translational = velocity == vec2::zerovec() ? 0.0 : velocity.dot(velocity) * mass;
         double rotational = angular_frequency == 0.0 ? 0.0 : angular_frequency * angular_frequency * moment_of_inertia;

@@ -249,33 +249,33 @@ struct bounding_box {
             vec2, std::ranges::range_value_t<decltype(points)>
         >);
         if (points.begin() == points.end()) return;
-        double l = std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+        double l = (*std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
             return lhs.x < rhs.x;
-        })->x;
-        double r = std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+        })).x;
+        double r = (*std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
             return lhs.x < rhs.x;
-        })->x;
-        double b = std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+        })).x;
+        double b = (*std::min_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
             return lhs.y < rhs.y;
-        })->x;
-        double t = std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
+        })).y;
+        double t = (*std::max_element(points.begin(), points.end(), [](vec2 const& lhs, vec2 const& rhs) {
             return lhs.y < rhs.y;
-        })->x;
+        })).y;
         bottom_left = vec2{l, b};
         top_right = vec2{r,t};
     }
 
-    bool intersects(bounding_box& other) const {
-        return  (bottom_left.x <= other.top_right.x) && 
-                (top_right.x >= other.bottom_left.x) &&
-                (bottom_left.y <= other.top_right.y) &&
-                (top_right.x >= other.bottom_left.y);
+    bool intersects(const bounding_box& other) const {
+        if ((bottom_left.x > other.top_right.x) || (top_right.x < other.bottom_left.x)) return false; 
+        if ((bottom_left.y > other.top_right.y) || (top_right.y < other.bottom_left.y)) return false;
+
+        return true;
     }
 
-    bounding_box bb_union(const bounding_box other) {
+    bounding_box bb_union(const bounding_box& other) const {
         return bounding_box{
             vec2{std::min(bottom_left.x, other.bottom_left.x), std::min(bottom_left.y, other.bottom_left.y)},
-            vec2{std::max(bottom_left.x, other.bottom_left.x), std::max(bottom_left.y, other.bottom_left.y)}
+            vec2{std::max(top_right.x, other.top_right.x), std::max(top_right.y, other.top_right.y)}
         };
     }
 };

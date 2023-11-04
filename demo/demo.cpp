@@ -8,6 +8,7 @@
 #include "mxphys/polygon.h"
 #include "mxphys/body.h"
 #include "mxphys/forces.h"
+#include "mxphys/bv_heirarchy.h"
 
 int main(int argc, char** argv) {
 
@@ -57,12 +58,12 @@ int main(int argc, char** argv) {
 
     std::vector<mxphys::body> bodies;
 
-    // create 25 sample polygons
-    for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 5; ++j) {
-            auto px = static_cast<double>(i + 1) / 6.0;
-            auto py = static_cast<double>(j + 1) / 6.0; 
-            bodies.emplace_back(regular_poly( (i + j) % 5 + 3, ((i + j) % 6 + 4) / 4.0,
+    // create 225 sample polygons
+    for (int i = 0; i < 15; ++i) {
+        for (int j = 0; j < 15; ++j) {
+            auto px = static_cast<double>(i + 1) / 16.0;
+            auto py = static_cast<double>(j + 1) / 16.0; 
+            bodies.emplace_back(regular_poly( (i + j) % 5 + 3, ((i + j) % 6 + 4) / 10.0,
                 mxphys::affine_2d{
                     mxphys::mat2::identity(),
                     vec2{std::lerp(bb_l, bb_r, px), std::lerp(bb_u, bb_d, py)}
@@ -122,6 +123,15 @@ int main(int argc, char** argv) {
         }
     };
 
+    auto draw_bounding_box = [renderer, &world_to_scr](const mxphys::bounding_box& bb) {
+        auto [x1, y1] = world_to_scr(bb.bottom_left);
+        auto [x2, y2] = world_to_scr(bb.top_right);
+        SDL_RenderDrawLine(renderer, x1, y1, x2, y1);
+        SDL_RenderDrawLine(renderer, x1, y1, x1, y2);
+        SDL_RenderDrawLine(renderer, x2, y1, x2, y2);
+        SDL_RenderDrawLine(renderer, x1, y2, x2, y2);
+    };
+
     bool close = false;
     std::chrono::time_point t0 = std::chrono::steady_clock::now();
     while (!close) {
@@ -130,13 +140,23 @@ int main(int argc, char** argv) {
         delta /= 1000.0;
         t0 = std::chrono::steady_clock::now();
         
+        mxphys::bounding_volume_heirarchy<uint64_t> bvh_by_id(
+            bodies.cbegin(), bodies.cend(),
+            [](const mxphys::body & b) { return b.getID(); },
+            [](const mxphys::body & b) { return b.getBoundingBox(); }
+        );
+
         std::vector<mxphys::contact_point> contacts;
-        for (int i = 0; i < 6; ++i) {
-            for (auto it = bodies.begin(); it < bodies.end(); ++it) {
-                for (auto jt = it + 1; jt < bodies.end(); ++jt) {
-                    it->get_contact_points(*jt, contacts);
+        for (auto it = bodies.begin(); it < bodies.end(); ++it) {
+            bvh_by_id.for_each_possible_colliding(
+                it->getBoundingBox(),
+                [&bodies, &contacts, &it](uint64_t other_id) {
+                    auto jt = std::lower_bound(bodies.begin(), bodies.end(), other_id, [](const mxphys::body& b, uint64_t v){
+                        return b.getID() < v;
+                    });
+                    if (jt->getID() == other_id) it->get_contact_points(*jt, contacts);
                 }
-            }
+            );
         }
         bool contacts_unresolved = true;
         
@@ -162,11 +182,22 @@ int main(int argc, char** argv) {
         SDL_SetRenderDrawColor(renderer, 0,0,0,255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(renderer, 180,0,0,255);
+        for (const mxphys::body& b : bodies) {
+            draw_bounding_box(b.getBoundingBox());
+        }
 
+        SDL_SetRenderDrawColor(renderer, 0, 0, 180, 127);
+        for (auto bb : bvh_by_id.getBoundingBoxes()) {
+            draw_bounding_box(bb);
+        }
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         for (const mxphys::body& b : bodies) {
             draw_body(b);
         }
+
+        SDL_SetRenderDrawColor(renderer, 0,0,0,255);
 
         SDL_RenderPresent(renderer);
     }

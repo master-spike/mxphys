@@ -44,6 +44,13 @@ void body::apply_impulse(impulse_point imp) {
     velocity += (1.0/mass) * imp.impulse;
 }
 
+bounding_box body::getBoundingBox() const
+{
+    return bounding_box{
+        getTranslatedPoints()
+    };
+}
+
 uint64_t body::id_next = 0;
 
 std::optional<std::pair<double,vec2>> body::sat_contact_normal(const body& other) const {
