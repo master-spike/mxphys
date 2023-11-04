@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
         }
         
         mxphys::bounding_volume_heirarchy<uint64_t> bvh_by_id(
-            bodies.cbegin(), bodies.cend(),
+            bodies.begin(), bodies.end(),
             [](const mxphys::body & b) { return b.getID(); },
             [](const mxphys::body & b) { return b.getBoundingBox(); }
         );

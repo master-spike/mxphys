@@ -19,12 +19,17 @@ namespace mxphys {
 template<typename T>
 class bounding_volume_heirarchy {
     struct bvh_node {
+        
         bounding_box m_BB;
+        
         std::optional<T> m_Value;
+        
         std::optional<
             std::pair<std::unique_ptr<bvh_node>, std::unique_ptr<bvh_node>>
         > m_Children;
-        bvh_node(std::vector<std::pair<T, bounding_box>>::iterator ts_l, std::vector<std::pair<T, bounding_box>>::iterator ts_r) : m_BB{vec2::zerovec(), vec2::zerovec()}, m_Value{std::nullopt}, m_Children{std::nullopt}{
+        
+        bvh_node(std::vector<std::pair<T, bounding_box>>::iterator ts_l, std::vector<std::pair<T, bounding_box>>::iterator ts_r)
+        : m_BB{vec2::zerovec(), vec2::zerovec()}, m_Value{std::nullopt}, m_Children{std::nullopt} {
             if (std::distance(ts_l, ts_r) == 0) {
                 return;
             }
@@ -71,10 +76,9 @@ class bounding_volume_heirarchy {
             if (x_overlap < y_overlap) {
                 std::nth_element(ts_l, midpoint, ts_r, cmp_x);
             }
-            m_Value = midpoint->first;
             m_Children = std::make_pair(
                 std::make_unique<bvh_node>(ts_l, midpoint),
-                std::make_unique<bvh_node>(midpoint+1, ts_r)
+                std::make_unique<bvh_node>(midpoint, ts_r)
             );
         }
         std::size_t traverse(const bounding_box& bb, std::function<void(const T&)> func) const {
@@ -100,25 +104,15 @@ class bounding_volume_heirarchy {
             }
         }
 
-        int countElems(std::unordered_set<T>& seen) const {
-            int c = 0;
-            if (m_Value.has_value()) {
-                ++c;
-                seen.emplace(m_Value().value());
-            }
-            if (m_Children.has_value()) {
-                c += m_Children.value().first->countElems(seen);
-                c += m_Children.value().first->countElems(seen);
-            }
-            return c;
-        }
     };
 
     std::optional<bvh_node> top_node;
 
 public:
     bounding_volume_heirarchy()  = delete;
-    bounding_volume_heirarchy(auto it_elems, auto it_end,
+
+    template<class InputIt>
+    bounding_volume_heirarchy(InputIt it_elems, InputIt it_end,
                               auto t_from_u,
                               auto bb_from_u) : top_node(std::nullopt)
     {
