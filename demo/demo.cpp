@@ -139,10 +139,10 @@ int main(int argc, char** argv) {
     std::size_t c = 0;
     while (!close) {
         std::chrono::time_point t1 = std::chrono::steady_clock::now();
-        double delta = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
-        delta /= 1000.0;
+        double delta = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count());
+        delta /= 1000000.0;
         t0 = std::chrono::steady_clock::now();
-        std::string new_window_title = "mxphys demo - " + std::to_string(delta) + "ms | c:" + std::to_string(c);
+        std::string new_window_title = "mxphys demo - " + std::to_string(delta * 1000.0) + "ms | contact tests:" + std::to_string(c);
         SDL_SetWindowTitle(window, new_window_title.c_str());
 
         std::unordered_map<uint64_t, std::vector<mxphys::body>::iterator> id_to_body;
@@ -169,7 +169,6 @@ int main(int argc, char** argv) {
                 }
             );
         }
-        c /= bodies.size();
         bool contacts_unresolved = true;
         
         int max_iters = 5;
