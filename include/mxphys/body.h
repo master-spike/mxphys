@@ -15,7 +15,7 @@ namespace mxphys {
 class body {
 private:
 
-    static uint64_t id_next;
+    static uint64_t id_next; // how many users are really going to create more than 4 billion bodies?
 
     convex_polygon shape;
     // position of center of mass
@@ -35,6 +35,15 @@ private:
 
 public:
     body() = delete;
+    
+    // No copy constructors as ID must be unique
+    body(const body&) = delete;
+    body& operator=(const body&) = delete;
+
+    body(body&&) = default;
+    body& operator=(body&&) = default;
+    ~body() = default;
+
     body(const convex_polygon& _shape, const affine_2d& _pos, double _mass, double _moment_of_inertia, double _elasticity)
       : shape(_shape), position(_pos), mass(_mass), moment_of_inertia(_moment_of_inertia), elasticity(_elasticity),
         velocity{0.0, 0.0}, angular_frequency(0.0), id(id_next) {
