@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <numeric>
 #include <unordered_set>
+#include <iterator>
 
 #include "types.h"
 
@@ -18,95 +19,109 @@ namespace mxphys {
 
 template<typename T>
 class bounding_volume_heirarchy {
+
+
     struct bvh_node {
         
         bounding_box m_BB;
         
         std::optional<T> m_Value;
-        
-        std::optional<
-            std::pair<std::unique_ptr<bvh_node>, std::unique_ptr<bvh_node>>
-        > m_Children;
-        
-        bvh_node(std::vector<std::pair<T, bounding_box>>::iterator ts_l, std::vector<std::pair<T, bounding_box>>::iterator ts_r)
-        : m_BB{vec2::zerovec(), vec2::zerovec()}, m_Value{std::nullopt}, m_Children{std::nullopt} {
-            if (std::distance(ts_l, ts_r) == 0) {
-                return;
-            }
-            m_BB = ts_l->second;
-            if (std::distance(ts_l, ts_r) == 1) {
-                m_Value = ts_l->first;
-                return;
-            }
-            m_BB = std::accumulate(ts_l, ts_r, m_BB, [](const bounding_box& lhs, const std::pair<T, bounding_box>& rhs) {
-                return lhs.bb_union(rhs.second);
-            });
+        std::optional<std::size_t> m_left;
+        std::optional<std::size_t> m_right;
 
-            // we don't need to divide by 2 as we are simply using it to compare
-            auto bb_centroidx2 = [](const bounding_box& bb) -> vec2 {
-                return vec2{bb.bottom_left.x + bb.top_right.x, bb.bottom_left.y + bb.top_right.y};
-            };
+        bvh_node(bounding_box _bb, std::optional<T> _val, std::optional<std::size_t> _l, std::optional<std::size_t> _r)
+        : m_BB(_bb), m_Value(_val), m_left(_l), m_right(_r) {
 
-            auto cmp_x = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
-                return bb_centroidx2(lhs.second).x < bb_centroidx2(rhs.second).x;
-            };
-            auto cmp_y = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
-                return bb_centroidx2(lhs.second).y < bb_centroidx2(rhs.second).y;
-            };
-            
-            auto midpoint = ts_l;
-            std::advance(midpoint, std::distance(ts_l, ts_r) / 2);
-            std::nth_element(ts_l, midpoint, ts_r, cmp_x);
-            double x_part_line = midpoint->second.bottom_left.x;
-            std::size_t x_overlap = std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
-                return pair.second.top_right.x >= x_part_line;
-            }) + std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
-                return pair.second.bottom_left.x <= x_part_line;
-            }) - std::distance(ts_l, ts_r);
-
-            // find overlap along y-axis
-            std::nth_element(ts_l, midpoint, ts_r, cmp_y);
-            double y_part_line = midpoint->second.bottom_left.y;
-            std::size_t y_overlap = std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
-                return pair.second.top_right.y >= y_part_line;
-            }) + std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
-                return pair.second.bottom_left.y <= y_part_line;
-            }) - std::distance(ts_l, ts_r);
-
-            if (x_overlap < y_overlap) {
-                std::nth_element(ts_l, midpoint, ts_r, cmp_x);
-            }
-            m_Children = std::make_pair(
-                std::make_unique<bvh_node>(ts_l, midpoint),
-                std::make_unique<bvh_node>(midpoint, ts_r)
-            );
-        }
-        std::size_t traverse(const bounding_box& bb, std::function<void(const T&)> func) const {
-            if (!bb.intersects(m_BB)) return 0;
-            std::size_t c = 0;
-            if (m_Value.has_value()) {
-                func(m_Value.value());
-                c = 1;
-            }
-            if (m_Children.has_value()) {
-                c += m_Children.value().first->traverse(bb,func);
-                c += m_Children.value().second->traverse(bb,func);
-            }
-            return c;
-        }
-
-        void getBoundingBoxes(auto out) const {
-            *out = m_BB;
-            ++out;
-            if (m_Children.has_value()) {
-                m_Children.value().first->getBoundingBoxes(out);
-                m_Children.value().second->getBoundingBoxes(out);
-            }
         }
 
     };
 
-    std::optional<bvh_node> top_node;
+    std::vector<bvh_node> nodes;
+
+    std::optional<std::size_t> constructBVHNode(std::vector<std::pair<T, bounding_box>>::iterator ts_l,
+                                 std::vector<std::pair<T, bounding_box>>::iterator ts_r) {
+        if (std::distance(ts_l, ts_r) == 0) {
+            return std::nullopt;
+        }
+        std::size_t s = nodes.size();
+        if (std::distance(ts_l, ts_r) == 1) {
+            nodes.emplace_back(ts_l->second, ts_l->first, std::nullopt, std::nullopt);
+            return s;
+        }
+
+        bounding_box node_bb = ts_l->second;
+        node_bb = std::accumulate(ts_l, ts_r, node_bb, [](const bounding_box& lhs, const std::pair<T, bounding_box>& rhs) {
+            return lhs.bb_union(rhs.second);
+        });
+
+        auto bb_centroidx2 = [](const bounding_box& bb) -> vec2 {
+            return vec2{bb.bottom_left.x + bb.top_right.x, bb.bottom_left.y + bb.top_right.y};
+        };
+        auto cmp_x = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
+            return bb_centroidx2(lhs.second).x < bb_centroidx2(rhs.second).x;
+        };
+        auto cmp_y = [&bb_centroidx2](const auto& lhs, const auto& rhs) {
+            return bb_centroidx2(lhs.second).y < bb_centroidx2(rhs.second).y;
+        };
+
+        auto midpoint = ts_l;
+        std::advance(midpoint, std::distance(ts_l, ts_r) / 2);
+
+
+        std::nth_element(ts_l, midpoint, ts_r, cmp_x);
+        double x_part_line = midpoint->second.bottom_left.x;
+        std::size_t x_overlap = std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
+            return pair.second.top_right.x >= x_part_line;
+        }) + std::count_if(ts_l, ts_r, [x_part_line](const std::pair<T, bounding_box>& pair) {
+            return pair.second.bottom_left.x <= x_part_line;
+        }) - std::distance(ts_l, ts_r);
+
+        // find overlap along y-axis
+        std::nth_element(ts_l, midpoint, ts_r, cmp_y);
+        double y_part_line = midpoint->second.bottom_left.y;
+        std::size_t y_overlap = std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
+            return pair.second.top_right.y >= y_part_line;
+        }) + std::count_if(ts_l, ts_r, [y_part_line](const std::pair<T, bounding_box>& pair) {
+            return pair.second.bottom_left.y <= y_part_line;
+        }) - std::distance(ts_l, ts_r);
+
+        if (x_overlap < y_overlap) {
+            std::nth_element(ts_l, midpoint, ts_r, cmp_x);
+        }
+
+        nodes.emplace_back(node_bb, std::nullopt, 0, 0);
+        nodes[s].m_left = constructBVHNode(ts_l, midpoint);
+        nodes[s].m_right = constructBVHNode(midpoint, ts_r);
+
+        return s;
+    }
+
+    std::size_t traverse(const bounding_box& bb, std::function<void(const T&)> func, std::size_t idx) const {
+        if (!bb.intersects(nodes[idx].m_BB)) return 0;
+        std::size_t c = 0;
+        if (nodes[idx].m_Value.has_value()) {
+            func(nodes[idx].m_Value.value());
+            c = 1;
+        }
+        if (nodes[idx].m_left.has_value()) {
+            c += traverse(bb,func, nodes[idx].m_left.value());
+        }
+        if (nodes[idx].m_right.has_value()) {
+            c += traverse(bb,func, nodes[idx].m_right.value());
+        }
+        return c;
+    }
+
+    void get_bounding_boxes(std::size_t idx, auto output_it) const {
+        *output_it = nodes[idx].m_BB;
+        ++output_it;
+        if (nodes[idx].m_left.has_value()) {
+            get_bounding_boxes(nodes[idx].m_left.value(), output_it);
+        }
+        if (nodes[idx].m_right.has_value()) {
+            get_bounding_boxes(nodes[idx].m_right.value(), output_it);
+        }
+    }
 
 public:
     bounding_volume_heirarchy()  = delete;
@@ -114,24 +129,25 @@ public:
     template<class InputIt>
     bounding_volume_heirarchy(InputIt it_elems, InputIt it_end,
                               auto t_from_u,
-                              auto bb_from_u) : top_node(std::nullopt)
+                              auto bb_from_u)
     {
         static_assert(std::is_trivial_v<T>, "T is not a trivial type");
         std::vector<std::pair<T, bounding_box>> ts;
         std::transform(it_elems, it_end, std::back_inserter(ts), [&t_from_u, &bb_from_u](auto const& u) {
             return std::make_pair(t_from_u(u), bb_from_u(u));
         });
-        top_node = bvh_node{ts.begin(), ts.end()};
+        nodes.reserve(ts.size() * 2);
+        constructBVHNode(ts.begin(), ts.end());
     }
     
-    std::size_t for_each_possible_colliding(const bounding_box& bb, std::function<void(const T&)> func) {
-        if (top_node.has_value()) return top_node->traverse(bb, func);
+    std::size_t for_each_possible_colliding(const bounding_box& bb, std::function<void(const T&)> func) const {
+        if (!nodes.empty()) return traverse(bb, func, 0);
         return 0;
     }
 
     std::vector<bounding_box> getBoundingBoxes() const {
         std::vector<bounding_box> boxes;
-        if (top_node.has_value()) top_node->getBoundingBoxes(std::back_inserter(boxes));
+        if (!nodes.empty()) get_bounding_boxes(0, std::back_inserter(boxes));
         return boxes;
     }
 };
