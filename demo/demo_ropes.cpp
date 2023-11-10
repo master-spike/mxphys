@@ -160,11 +160,11 @@ int main(int argc, char** argv) {
     };
 
     // create 10 sample ropes
-    for (uint64_t i = 0; i < 10; ++i) {
-        auto& body1 = bodies[i + 15];
-        auto& body2 = bodies[i + 16];
+    for (uint64_t i = 0; i < 18; ++i) {
+        auto& body1 = bodies[i];
+        auto& body2 = bodies[i + 18];
         vec2 diff = body1.getPos().shift - body2.getPos().shift;
-        ropes.emplace_back(body1.getID(), body2.getID(), vec2::zerovec(), vec2::zerovec(),std::sqrt(diff.dot(diff)), 700.0, 700.0);
+        ropes.emplace_back(body1.getID(), body2.getID(), vec2::zerovec(), body2.getShape().getPoints().back(),std::sqrt(diff.dot(diff)), 50.0, 0.0, 1.0);
     }
 
     bool close = false;
@@ -176,6 +176,7 @@ int main(int argc, char** argv) {
         delta /= 1000000.0;
         t0 = std::chrono::steady_clock::now();
         std::string new_window_title = "mxphys demo - " + std::to_string(delta * 1000.0) + "ms | contact tests:" + std::to_string(c);
+        delta = std::max(delta, 0.016);
         SDL_SetWindowTitle(window, new_window_title.c_str());
 
         mxphys::bounding_volume_heirarchy<uint64_t> bvh_by_id(
@@ -226,7 +227,7 @@ int main(int argc, char** argv) {
         SDL_RenderClear(renderer);
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 180, 127);
-        for (auto bb : bvh_by_id.getBoundingBoxes()) {
+        for (auto& bb : bvh_by_id.getBoundingBoxes()) {
             draw_bounding_box(bb);
         }
 
