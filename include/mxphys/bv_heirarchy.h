@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <numeric>
 #include <unordered_set>
+#include <thread>
 
 #include "types.h"
 
@@ -76,10 +77,27 @@ class bounding_volume_heirarchy {
             if (x_overlap < y_overlap) {
                 std::nth_element(ts_l, midpoint, ts_r, cmp_x);
             }
-            m_Children = std::make_pair(
-                std::make_unique<bvh_node>(ts_l, midpoint),
-                std::make_unique<bvh_node>(midpoint, ts_r)
-            );
+            if (std::distance(ts_l, ts_r) > 64) {
+                std::unique_ptr<bvh_node> left;
+                std::unique_ptr<bvh_node> right;
+                auto thr_create_node = [](auto l, auto r, std::unique_ptr<bvh_node> * node) {
+                    auto x = std::make_unique<bvh_node>(l,r);
+                    node->swap(x);
+                };
+                std::thread t1(thr_create_node, ts_l, midpoint, &left);
+                thr_create_node(midpoint, ts_r, &right);
+                t1.join();
+                m_Children = std::make_pair(
+                    std::move(left),
+                    std::move(right)
+                );
+            }
+            else {
+                m_Children = std::make_pair(
+                    std::make_unique<bvh_node>(ts_l, midpoint),
+                    std::make_unique<bvh_node>(midpoint, ts_r)
+                );
+            }
         }
         std::size_t traverse(const bounding_box& bb, std::function<void(const T&)> func) const {
             if (!bb.intersects(m_BB)) return 0;

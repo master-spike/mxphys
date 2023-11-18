@@ -6,6 +6,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <vector>
+#include <thread>
 
 #include "mxphys/polygon.h"
 #include "mxphys/body.h"
@@ -31,10 +32,10 @@ int main(int argc, char** argv) {
 
     using mxphys::vec2;
 
-    constexpr double bb_l = -15.0;
-    constexpr double bb_r = 15.0;
-    constexpr double bb_u = -15.0;
-    constexpr double bb_d = 15.0;
+    constexpr double bb_l = -20.0;
+    constexpr double bb_r = 20.0;
+    constexpr double bb_u = -20.0;
+    constexpr double bb_d = 20.0;
 
     auto world_to_scr = [bb_r, bb_l, bb_u, bb_d](mxphys::vec2 v) {
         double x_frac = (v.x - bb_l) / (bb_r - bb_l);
@@ -60,11 +61,11 @@ int main(int argc, char** argv) {
 
     std::vector<mxphys::body> bodies;
 
-    // create 400 sample polygons
-    for (int i = 0; i < 20; ++i) {
-        for (int j = 0; j < 20; ++j) {
-            auto px = static_cast<double>(i + 1) / 21.0;
-            auto py = static_cast<double>(j + 1) / 21.0;
+    // create 900 sample polygons
+    for (int i = 0; i < 30; ++i) {
+        for (int j = 0; j < 30; ++j) {
+            auto px = static_cast<double>(i + 1) / 31.0;
+            auto py = static_cast<double>(j + 1) / 31.0;
             bodies.emplace_back(regular_poly( (i + j) % 5 + 3, ((i + j) % 6 + 4) / 10.0,
                 mxphys::affine_2d{
                     mxphys::mat2::identity(),
@@ -156,19 +157,41 @@ int main(int argc, char** argv) {
             [](const mxphys::body & b) { return b.getBoundingBox(); }
         );
 
-        std::vector<mxphys::contact_point> contacts;
-        c = 0;
-        for (auto it = bodies.begin(); it < bodies.end(); ++it) {
-            c += bvh_by_id.for_each_possible_colliding(
-                it->getBoundingBox(),
-                [&id_to_body, &contacts, &it](uint64_t other_id) {
-                    if (it->getID() >= other_id) return;
-                    auto jt = id_to_body.find(other_id);
-                    if (jt == id_to_body.end()) return;
-                    if (jt->second->getID() == other_id) it->get_contact_points(*(jt->second), contacts);
-                }
-            );
+        static constexpr uint32_t num_threads = 5;
+
+        std::vector<std::vector<mxphys::contact_point>> thr_contacts(num_threads);
+        std::vector<std::size_t> thr_c(num_threads);
+        std::vector<std::thread> threads;
+
+        auto process_bodies = [&id_to_body, &bvh_by_id](auto it, auto end, std::vector<mxphys::contact_point>* out_v, std::size_t* out_c) -> void {
+            for (; it != end; ++it) {
+                *out_c += bvh_by_id.for_each_possible_colliding(
+                    it->getBoundingBox(),
+                    [&id_to_body, &out_v, &it](uint64_t other_id) {
+                        if (it->getID() >= other_id) return;
+                        auto jt = id_to_body.find(other_id);
+                        if (jt == id_to_body.end()) return;
+                        if (jt->second->getID() == other_id) it->get_contact_points(*(jt->second), *out_v);
+                    }
+                );
+            }
+            
+        };
+        for (uint32_t i = 0; i < num_threads; ++i) {
+            auto begin = bodies.begin() + i * std::distance(bodies.begin(), bodies.end()) / num_threads;
+            auto end = bodies.begin() + (i + 1) * std::distance(bodies.begin(), bodies.end()) / num_threads;
+            threads.emplace_back(std::thread(process_bodies, begin, end, &thr_contacts[i], &thr_c[i]));
         }
+        for (auto& t : threads) {
+            t.join();
+        }
+        c = std::accumulate(thr_c.begin(), thr_c.end(), 0);
+        std::vector<mxphys::contact_point> contacts;
+        for (auto& thr_cvec : thr_contacts) {
+            std::transform(thr_cvec.begin(), thr_cvec.end(), std::back_inserter(contacts), std::identity());
+            thr_cvec.clear();
+        }
+
         bool contacts_unresolved = true;
         
         int max_iters = 5;
